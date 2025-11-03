@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/auth_service.dart';
 import '../services/transaction_service.dart';
-import '../services/print_service.dart';
+import '../services/receipt_service.dart';
 import '../models/user.dart';
 import '../models/transaction.dart';
 
@@ -176,40 +176,39 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
             child: const Text('Tutup'),
           ),
           ElevatedButton.icon(
-            onPressed: () {
-              Navigator.pop(context);
-              _printReceipt(transaction);
+            onPressed: () async {
+              try {
+                await ReceiptService.printReceipt(transaction);
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Struk berhasil dicetak!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             icon: const Icon(Icons.print),
-            label: const Text('Cetak'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+            label: const Text('Cetak Struk'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.purple,
+              foregroundColor: Colors.white,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _printReceipt(Transaction transaction) async {
-    try {
-      await PrintService.printReceipt(transaction);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Struk berhasil dicetak!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mencetak struk: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _showDeleteConfirmation(Transaction transaction) async {
