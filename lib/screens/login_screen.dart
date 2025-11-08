@@ -31,31 +31,42 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      bool success;
+      Map<String, dynamic> result;
       if (_isLogin) {
-        success = await AuthService.login(
+        result = await AuthService.login(
           _usernameController.text,
           _passwordController.text,
         );
       } else {
-        success = await AuthService.register(
+        result = await AuthService.register(
           _usernameController.text,
           _passwordController.text,
         );
       }
 
-      if (success) {
+      if (result['success'] == true) {
         if (_isLogin) {
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const DashboardScreen()),
-            );
+            // Cek apakah ada masalah device limit
+            if (result['deviceLimitReached'] == true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result['message'] ?? 'Device limit reached'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const DashboardScreen()),
+              );
+            }
           }
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Registrasi berhasil! Silakan login.'),
+              SnackBar(
+                content: Text(result['message'] ?? 'Registrasi berhasil! Silakan login.'),
                 backgroundColor: Colors.green,
               ),
             );
@@ -69,9 +80,8 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(_isLogin 
-                ? 'Username atau password salah!' 
-                : 'Username sudah ada!'),
+              content: Text(result['message'] ?? 
+                (_isLogin ? 'Username atau password salah!' : 'Registrasi gagal!')),
               backgroundColor: Colors.red,
             ),
           );

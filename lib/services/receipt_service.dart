@@ -8,15 +8,24 @@ import '../models/receipt_template.dart';
 import 'receipt_template_service.dart';
 
 class ReceiptService {
-  static Future<void> printReceipt(Transaction transaction) async {
+  // Enum jenis printer
+  static const String printerType58mm = '58mm';
+  static const String printerType80mm = '80mm';
+  static const String printerTypeA4 = 'A4';
+
+  /// Print receipt sesuai tipe printer
+  static Future<void> printReceipt(
+    Transaction transaction, {
+    String printerType = printerType58mm,
+  }) async {
     try {
-      // Ambil template dari service
+      // Ambil template struk
       final template = await ReceiptTemplateService.getTemplate();
-      
-      // Generate PDF
-      final pdf = await _generatePDF(transaction, template);
-      
-      // Print menggunakan printing package
+
+      // Generate PDF sesuai jenis printer
+      final pdf = await _generatePDF(transaction, template, printerType);
+
+      // Cetak atau simpan PDF
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => pdf,
       );
@@ -28,232 +37,201 @@ class ReceiptService {
   static Future<Uint8List> _generatePDF(
     Transaction transaction,
     ReceiptTemplate template,
+    String printerType,
   ) async {
     final pdf = pw.Document();
     final format = NumberFormat('#,###');
 
-    // Format struk 80mm untuk thermal printer
-    const width = 80.0 * (72.0 / 25.4); // 80mm dalam points
-    const height = 297.0 * (72.0 / 25.4); // 297mm (A4 height) dalam points
-    final pageFormat = PdfPageFormat(width, height);
+    // Tentukan ukuran halaman
+    PdfPageFormat pageFormat;
+
+    switch (printerType) {
+      case printerType58mm:
+        // Kertas 58mm, area cetak efektif 48mm
+        pageFormat = PdfPageFormat(
+          58 * PdfPageFormat.mm,
+          double.infinity,
+          marginAll: 1.5 * PdfPageFormat.mm,
+        );
+        break;
+      case printerType80mm:
+        // Kertas 80mm, area cetak efektif 72mm
+        pageFormat = PdfPageFormat(
+          80 * PdfPageFormat.mm,
+          double.infinity,
+          marginAll: 2 * PdfPageFormat.mm,
+        );
+        break;
+      case printerTypeA4:
+        // Printer biasa (A4)
+        pageFormat = PdfPageFormat.a4.copyWith(
+          marginLeft: 20,
+          marginRight: 20,
+          marginTop: 20,
+          marginBottom: 20,
+        );
+        break;
+      default:
+        pageFormat = PdfPageFormat(
+          58 * PdfPageFormat.mm,
+          double.infinity,
+          marginAll: 2 * PdfPageFormat.mm,
+        );
+    }
 
     pdf.addPage(
       pw.Page(
         pageFormat: pageFormat,
         build: (pw.Context context) {
+          final bool isA4 = printerType == printerTypeA4;
+          final double headerFontSize = isA4 ? 18 : 12;
+          final double bodyFontSize = isA4 ? 11 : 8;
+          final double smallFontSize = isA4 ? 9 : 6.5;
+          final double titleFontSize = isA4 ? 13 : 9.5;
+
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              // Header - Nama Toko
+              // Header toko
               pw.Text(
                 template.storeName,
                 style: pw.TextStyle(
-                  fontSize: 18,
+                  fontSize: headerFontSize,
                   fontWeight: pw.FontWeight.bold,
                 ),
                 textAlign: pw.TextAlign.center,
               ),
-              pw.SizedBox(height: 4),
-              
-              // Deskripsi
               if (template.description.isNotEmpty)
                 pw.Text(
                   template.description,
-                  style: const pw.TextStyle(fontSize: 10),
+                  style: pw.TextStyle(fontSize: smallFontSize),
                   textAlign: pw.TextAlign.center,
                 ),
-              
-              // Alamat
               if (template.address.isNotEmpty)
                 pw.Text(
                   template.address,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: pw.TextStyle(fontSize: smallFontSize),
                   textAlign: pw.TextAlign.center,
                 ),
-              
-              // Telepon
               if (template.phone.isNotEmpty)
                 pw.Text(
                   template.phone,
-                  style: const pw.TextStyle(fontSize: 9),
+                  style: pw.TextStyle(fontSize: smallFontSize),
                   textAlign: pw.TextAlign.center,
                 ),
-              
-              pw.Divider(),
-              pw.SizedBox(height: 8),
-              
-              // Informasi Transaksi
+
+              pw.SizedBox(height: 4),
+              pw.Divider(thickness: 0.5),
+              pw.SizedBox(height: 3),
+
+              // Info transaksi
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text(
-                    'Tanggal: ',
-                    style: const pw.TextStyle(fontSize: 9),
-                  ),
+                  pw.Text('Tanggal:', style: pw.TextStyle(fontSize: bodyFontSize)),
                   pw.Text(
                     DateFormat('dd/MM/yyyy HH:mm').format(transaction.date),
-                    style: const pw.TextStyle(fontSize: 9),
+                    style: pw.TextStyle(fontSize: bodyFontSize),
+                  ),
+                ],
+              ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Invoice:', style: pw.TextStyle(fontSize: bodyFontSize)),
+                  pw.Text(
+                    '#${transaction.id.substring(transaction.id.length - 8)}',
+                    style: pw.TextStyle(fontSize: bodyFontSize),
                   ),
                 ],
               ),
               pw.SizedBox(height: 4),
+              pw.Divider(thickness: 0.5),
+              pw.SizedBox(height: 3),
+
+              // Header item
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text(
-                    'Invoice: ',
-                    style: const pw.TextStyle(fontSize: 9),
+                  pw.Expanded(
+                    flex: 3,
+                    child: pw.Text('Item', style: pw.TextStyle(fontSize: bodyFontSize, fontWeight: pw.FontWeight.bold)),
                   ),
-                  pw.Text(
-                    '#${transaction.id.substring(transaction.id.length - 8)}',
-                    style: const pw.TextStyle(fontSize: 9),
-                  ),
+                  pw.SizedBox(width: 6),
+                  pw.Text('Qty', style: pw.TextStyle(fontSize: bodyFontSize, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(width: 10),
+                  pw.Text('Harga', style: pw.TextStyle(fontSize: bodyFontSize, fontWeight: pw.FontWeight.bold)),
                 ],
               ),
-              
-              pw.Divider(),
-              pw.SizedBox(height: 8),
-              
-              // Header Tabel Item
-              pw.Row(
-                children: [
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Text(
-                      'Item',
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.Expanded(
-                    flex: 1,
-                    child: pw.Text(
-                      'Qty',
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                  pw.Expanded(
-                    flex: 2,
-                    child: pw.Text(
-                      'Harga',
-                      style: pw.TextStyle(
-                        fontSize: 9,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                      textAlign: pw.TextAlign.right,
-                    ),
-                  ),
-                ],
-              ),
-              
               pw.Divider(thickness: 0.5),
-              
-              // List Item
+
+              // Daftar item
               ...transaction.items.map((item) => pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: pw.Text(
                               item.productName,
-                              style: const pw.TextStyle(fontSize: 9),
+                              style: pw.TextStyle(fontSize: bodyFontSize),
+                              maxLines: 2,
                             ),
                           ),
-                          pw.Expanded(
-                            flex: 1,
-                            child: pw.Text(
-                              '${item.quantity}',
-                              style: const pw.TextStyle(fontSize: 9),
-                              textAlign: pw.TextAlign.right,
-                            ),
-                          ),
-                          pw.Expanded(
-                            flex: 2,
-                            child: pw.Text(
-                              format.format(item.price),
-                              style: const pw.TextStyle(fontSize: 9),
-                              textAlign: pw.TextAlign.right,
-                            ),
-                          ),
+                          pw.SizedBox(width: 6),
+                          pw.Text('${item.quantity}', style: pw.TextStyle(fontSize: bodyFontSize)),
+                          pw.SizedBox(width: 10),
+                          pw.Text(format.format(item.price), style: pw.TextStyle(fontSize: bodyFontSize)),
                         ],
                       ),
-                      pw.SizedBox(height: 2),
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.end,
-                        children: [
-                          pw.Text(
-                            'Subtotal: ${format.format(item.subtotal)}',
-                            style: const pw.TextStyle(fontSize: 8),
-                          ),
-                        ],
+                      pw.Align(
+                        alignment: pw.Alignment.centerRight,
+                        child: pw.Text(
+                          'Subtotal: ${format.format(item.subtotal)}',
+                          style: pw.TextStyle(fontSize: smallFontSize),
+                        ),
                       ),
                       pw.Divider(thickness: 0.3),
                     ],
                   )),
-              
-              pw.SizedBox(height: 8),
-              
+
+              pw.SizedBox(height: 4),
+              pw.Divider(thickness: 0.8),
+              pw.SizedBox(height: 4),
+
               // Total
-              pw.Container(
-                padding: const pw.EdgeInsets.all(8),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: PdfColors.grey),
-                ),
-                child: pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    pw.Text(
-                      'TOTAL:',
-                      style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.Text(
-                      format.format(transaction.totalPrice),
-                      style: pw.TextStyle(
-                        fontSize: 11,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('TOTAL:', style: pw.TextStyle(fontSize: titleFontSize, fontWeight: pw.FontWeight.bold)),
+                  pw.Text(format.format(transaction.totalPrice),
+                      style: pw.TextStyle(fontSize: titleFontSize, fontWeight: pw.FontWeight.bold)),
+                ],
               ),
-              
-              pw.SizedBox(height: 16),
-              
+
+              pw.SizedBox(height: 10),
+              pw.Divider(thickness: 0.5),
+
               // Footer
               if (template.footer1.isNotEmpty)
                 pw.Text(
                   template.footer1,
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                  style: pw.TextStyle(fontSize: smallFontSize, fontWeight: pw.FontWeight.bold),
                   textAlign: pw.TextAlign.center,
                 ),
               if (template.footer2.isNotEmpty)
                 pw.Text(
                   template.footer2,
-                  style: pw.TextStyle(
-                    fontSize: 10,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                  style: pw.TextStyle(fontSize: smallFontSize),
                   textAlign: pw.TextAlign.center,
                 ),
-              
-              pw.SizedBox(height: 16),
-              
+              pw.SizedBox(height: 6),
               pw.Text(
                 'Terima Kasih Atas Kunjungan Anda',
-                style: const pw.TextStyle(fontSize: 9),
+                style: pw.TextStyle(fontSize: smallFontSize),
                 textAlign: pw.TextAlign.center,
               ),
             ],
@@ -265,4 +243,3 @@ class ReceiptService {
     return pdf.save();
   }
 }
-
