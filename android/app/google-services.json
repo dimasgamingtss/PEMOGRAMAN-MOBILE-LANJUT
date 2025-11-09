@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "930032473098",
+    "project_id": "pos-penjualan-945be",
+    "storage_bucket": "pos-penjualan-945be.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930032473098:android:c8bac9f70b6c7f64f1bbf3",
+        "android_client_info": {
+          "package_name": "com.example.pos_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmQKyuhIgpXou7R4uw7NUJSOfalF46-i8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

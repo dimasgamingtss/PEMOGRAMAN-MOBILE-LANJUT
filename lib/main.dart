@@ -1,11 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:firebase_core/firebase_core.dart';
 import 'services/auth_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase hanya untuk Android/iOS (bukan web)
+  // Untuk web, Firebase memerlukan FirebaseOptions yang harus di-setup terpisah
+  if (!kIsWeb) {
+    try {
+      await Firebase.initializeApp();
+    } catch (e) {
+      print('Firebase initialization error: $e');
+      // Continue tanpa Firebase jika error (untuk development)
+    }
+  } else {
+    print('Firebase skipped for web platform');
+  }
+  
   runApp(const POSApp());
 }
 
